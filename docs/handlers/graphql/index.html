@@ -3,20 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="generator" content="Docusaurus v2.0.0-alpha.ffe8b6106">
+<meta name="generator" content="Docusaurus v2.0.0-alpha.72">
 <link rel="alternate" type="application/rss+xml" href="/blog/rss.xml" title="GraphQL Mesh Blog RSS Feed">
 <link rel="alternate" type="application/atom+xml" href="/blog/atom.xml" title="GraphQL Mesh Blog Atom Feed">
 <link rel="search" type="application/opensearchdescription+xml" title="GraphQL Mesh" href="/opensearch.xml">
-<script src="https://the-guild.dev/static/banner.js" async></script><title data-react-helmet="true">GraphQL | GraphQL Mesh</title><meta data-react-helmet="true" property="og:url" content="https://graphql-mesh.com/docs/handlers/graphql"><meta data-react-helmet="true" name="docsearch:language" content="en"><meta data-react-helmet="true" name="docsearch:version" content="current"><meta data-react-helmet="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-react-helmet="true" property="og:title" content="GraphQL | GraphQL Mesh"><meta data-react-helmet="true" name="description" content="image"><meta data-react-helmet="true" property="og:description" content="image"><link data-react-helmet="true" rel="shortcut icon" href="/img/favicon.ico"><link data-react-helmet="true" rel="canonical" href="https://graphql-mesh.com/docs/handlers/graphql"><link data-react-helmet="true" rel="alternate" href="https://graphql-mesh.com/docs/handlers/graphql" hreflang="en"><link data-react-helmet="true" rel="alternate" href="https://graphql-mesh.com/docs/handlers/graphql" hreflang="x-default"><link data-react-helmet="true" rel="preconnect" href="https://ANRJKXZTRW-dsn.algolia.net" crossorigin="anonymous"><link rel="stylesheet" href="/assets/css/styles.71cb895d.css">
+<script src="https://the-guild.dev/static/banner.js" async></script><title data-react-helmet="true">GraphQL | GraphQL Mesh</title><meta data-react-helmet="true" property="og:url" content="https://graphql-mesh.com/docs/handlers/graphql"><meta data-react-helmet="true" name="docsearch:language" content="en"><meta data-react-helmet="true" name="docsearch:version" content="current"><meta data-react-helmet="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-react-helmet="true" property="og:title" content="GraphQL | GraphQL Mesh"><meta data-react-helmet="true" name="description" content="image"><meta data-react-helmet="true" property="og:description" content="image"><link data-react-helmet="true" rel="shortcut icon" href="/img/favicon.ico"><link data-react-helmet="true" rel="canonical" href="https://graphql-mesh.com/docs/handlers/graphql"><link data-react-helmet="true" rel="alternate" href="https://graphql-mesh.com/docs/handlers/graphql" hreflang="en"><link data-react-helmet="true" rel="alternate" href="https://graphql-mesh.com/docs/handlers/graphql" hreflang="x-default"><link data-react-helmet="true" rel="preconnect" href="https://ANRJKXZTRW-dsn.algolia.net" crossorigin="anonymous"><link rel="stylesheet" href="/assets/css/styles.708042f5.css">
 <link rel="preload" href="/assets/js/styles.fe703e0e.js" as="script">
-<link rel="preload" href="/assets/js/runtime~main.ea96b024.js" as="script">
-<link rel="preload" href="/assets/js/main.b6a05ac0.js" as="script">
-<link rel="preload" href="/assets/js/1.c802966f.js" as="script">
-<link rel="preload" href="/assets/js/2.5db6dac7.js" as="script">
-<link rel="preload" href="/assets/js/228.70d23e9b.js" as="script">
-<link rel="preload" href="/assets/js/231.a6e93ddc.js" as="script">
+<link rel="preload" href="/assets/js/runtime~main.83b6baf4.js" as="script">
+<link rel="preload" href="/assets/js/main.c089a726.js" as="script">
+<link rel="preload" href="/assets/js/1.dd766ec8.js" as="script">
+<link rel="preload" href="/assets/js/2.dfe0d526.js" as="script">
+<link rel="preload" href="/assets/js/228.528c8b1a.js" as="script">
+<link rel="preload" href="/assets/js/231.560920f5.js" as="script">
 <link rel="preload" href="/assets/js/935f2afb.7a319113.js" as="script">
-<link rel="preload" href="/assets/js/17896441.74ba8cf4.js" as="script">
+<link rel="preload" href="/assets/js/17896441.67e01496.js" as="script">
 <link rel="preload" href="/assets/js/0303d301.31abf303.js" as="script">
 </head>
 <body>
@@ -28,14 +28,14 @@ other options will be ignored and the schema exported from the file will be used
 You can also provide <code>.js</code> or <code>.ts</code> file path that exports schemaHeaders as an object</li><li><code>operationHeaders</code> (type: <code>JSON</code>) - JSON object representing the Headers to add to the runtime of the API calls only for operation during runtime</li><li><code>useGETForQueries</code> (type: <code>Boolean</code>) - Use HTTP GET for Query operations</li><li><code>method</code> (type: <code>String (GET | POST)</code>) - HTTP method used for GraphQL operations</li><li><code>useSSEForSubscription</code> (type: <code>Boolean</code>) - Use Server Sent Events instead of WebSocket for Subscriptions</li><li><code>customFetch</code> (type: <code>Any</code>) - Path to a custom W3 Compatible Fetch Implementation</li><li><code>webSocketImpl</code> (type: <code>String</code>) - Path to a custom W3 Compatible WebSocket Implementation</li><li><code>introspection</code> (type: <code>String</code>) - Path to the introspection
 You can seperately give schema introspection</li><li><code>multipart</code> (type: <code>Boolean</code>) - Enable multipart/formdata in order to support file uploads</li><li><code>batch</code> (type: <code>Boolean</code>) - Batch requests</li></ul><p></p></div></article><div class="margin-vert--xl"><div class="row"><div class="col"><a href="https://github.com/urigo/graphql-mesh/edit/master/website/docs/handlers/graphql.md" target="_blank" rel="noreferrer noopener"><svg fill="currentColor" height="1.2em" width="1.2em" preserveAspectRatio="xMidYMid meet" role="img" viewBox="0 0 40 40" class="iconEdit_1CBY" aria-label="Edit page"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div></div></div><div class="margin-vert--lg"><nav class="pagination-nav" aria-label="Docs pages navigation"><div class="pagination-nav__item"><a class="pagination-nav__link" href="/docs/handlers/available-handlers"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">« Available Handlers</div></a></div><div class="pagination-nav__item pagination-nav__item--next"><a class="pagination-nav__link" href="/docs/handlers/openapi"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">OpenAPI / Swagger »</div></a></div></nav></div></div></div><div class="col col--3"><div class="tableOfContents_3J2a thin-scrollbar"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#dynamic-header-values-eg-for-authorization" class="table-of-contents__link">Dynamic Header Values (e.g. for Authorization)</a><ul><li><a href="#from-context-http-header-for-mesh-serve" class="table-of-contents__link">From Context (HTTP Header for <code>mesh serve</code>)</a></li><li><a href="#from-environmental-variable" class="table-of-contents__link">From Environmental Variable</a></li></ul></li><li><a href="#config-api-reference" class="table-of-contents__link">Config API Reference</a></li></ul></div></div></div></div></main></div></div><footer class="footer"><div class="container"><div class="row footer__links"><div class="col footer__col"><h4 class="footer__title">Community</h4><ul class="footer__items"><li class="footer__item"><a href="http://bit.ly/guild-chat" target="_blank" rel="noopener noreferrer" class="footer__link-item">Discord</a></li><li class="footer__item"><a href="https://stackoverflow.com/questions/tagged/graphql-mesh" target="_blank" rel="noopener noreferrer" class="footer__link-item">Stack Overflow</a></li></ul></div><div class="col footer__col"><h4 class="footer__title">Social</h4><ul class="footer__items"><li class="footer__item"><a href="https://github.com/Urigo/graphql-mesh/" target="_blank" rel="noopener noreferrer" class="footer__link-item">GitHub</a></li><li class="footer__item"><a href="https://twitter.com/TheGuildDev" target="_blank" rel="noopener noreferrer" class="footer__link-item">Twitter</a></li></ul></div></div><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2021 GraphQL Mesh, The Guild, Inc. Built with Docusaurus.</div></div></div></footer></div>
 <script src="/assets/js/styles.fe703e0e.js"></script>
-<script src="/assets/js/runtime~main.ea96b024.js"></script>
-<script src="/assets/js/main.b6a05ac0.js"></script>
-<script src="/assets/js/1.c802966f.js"></script>
-<script src="/assets/js/2.5db6dac7.js"></script>
-<script src="/assets/js/228.70d23e9b.js"></script>
-<script src="/assets/js/231.a6e93ddc.js"></script>
+<script src="/assets/js/runtime~main.83b6baf4.js"></script>
+<script src="/assets/js/main.c089a726.js"></script>
+<script src="/assets/js/1.dd766ec8.js"></script>
+<script src="/assets/js/2.dfe0d526.js"></script>
+<script src="/assets/js/228.528c8b1a.js"></script>
+<script src="/assets/js/231.560920f5.js"></script>
 <script src="/assets/js/935f2afb.7a319113.js"></script>
-<script src="/assets/js/17896441.74ba8cf4.js"></script>
+<script src="/assets/js/17896441.67e01496.js"></script>
 <script src="/assets/js/0303d301.31abf303.js"></script>
 </body>
 </html>
