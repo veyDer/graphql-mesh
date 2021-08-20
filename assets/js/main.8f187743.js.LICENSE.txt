@@ -8,12 +8,6 @@ object-assign
  * @license MIT */
 
 /*!
-  Copyright (c) 2018 Jed Watson.
-  Licensed under the MIT License (MIT), see
-  http://jedwatson.github.io/classnames
-*/
-
-/*!
 * focus-trap 6.5.1
 * @license MIT, https://github.com/focus-trap/focus-trap/blob/master/LICENSE
 */
