@@ -1,3 +1,4 @@
+import { sanitizeNameForGraphQL } from '@graphql-mesh/utils';
 import { parse as parseXML, X2jOptions } from 'fast-xml-parser';
 import { InputTypeComposer, InputTypeComposerFieldConfigMapDefinition, SchemaComposer } from 'graphql-compose';
 import { XSComplexType, WSDLDefinition, WSDLObject, WSDLPortType, WSDLBinding, WSDLMessage, XSSchema } from './types';
@@ -207,8 +208,9 @@ export class SOAPLoader {
     if (!inputTC) {
       const messageName = message.attributes.name;
       const prefix = this.namespaceTypePrefixMap.get(messageNamespace);
+      const inputTCName = sanitizeNameForGraphQL(`${prefix}_${messageName}_Input`);
       inputTC = this.schemaComposer.createInputTC({
-        name: `${prefix}_${messageName}_Input`,
+        name: inputTCName,
         fields: () => {
           const fieldMap: InputTypeComposerFieldConfigMapDefinition = {};
           const aliasMap = this.aliasMap.get(message);
@@ -232,8 +234,8 @@ export class SOAPLoader {
   }
 
   build() {
-    for (const [namespace, definitions] of this.namespaceDefinitionsMap) {
-      const prefix = this.namespaceTypePrefixMap.get(namespace);
+    for (const [_namespace, definitions] of this.namespaceDefinitionsMap) {
+      // const prefix = this.namespaceTypePrefixMap.get(namespace);
       for (const definition of definitions) {
         const serviceAndPortAliasMap = this.getAliasMapFromAttributes(definition.attributes);
         if (definition['wsdl:service']) {

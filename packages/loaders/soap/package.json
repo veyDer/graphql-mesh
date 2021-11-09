@@ -24,7 +24,11 @@
   },
   "dependencies": {
     "graphql-compose": "9.0.4",
-    "fast-xml-parser": "3.21.1"
+    "fast-xml-parser": "3.21.1",
+    "@graphql-mesh/utils": "0.21.1"
+  },
+  "devDependencies": {
+    "cross-undici-fetch": "0.0.20"
   },
   "publishConfig": {
     "access": "public",

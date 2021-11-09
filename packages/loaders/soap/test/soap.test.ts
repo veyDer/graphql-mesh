@@ -1,5 +1,5 @@
 import { SOAPLoader } from '../src';
-import { fetch } from 'undici';
+import { fetch } from 'cross-undici-fetch';
 
 describe('sth', () => {
   it('s', async () => {
@@ -7,8 +7,5 @@ describe('sth', () => {
       fetch: fetch as any,
     });
     await soapLoader.loadWSDL('http://dev-aviad:8431/services/MetadataService?wsdl');
-    for (const [typeName, types] of soapLoader.namespaceComplexTypesMap.entries()) {
-      console.log(typeName, types);
-    }
   });
 });
