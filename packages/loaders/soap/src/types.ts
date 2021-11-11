@@ -5,12 +5,12 @@ export interface WSDLDefinitionAttributes {
 
 export interface WSDLDefinition {
   attributes: WSDLDefinitionAttributes;
-  'wsdl:import'?: WSDLImport[];
-  'wsdl:service'?: WSDLService[];
-  'wsdl:binding'?: WSDLBinding[];
-  'wsdl:types'?: WSDLTypes[];
-  'wsdl:message'?: WSDLMessage[];
-  'wsdl:portType'?: WSDLPortType[];
+  import?: WSDLImport[];
+  service?: WSDLService[];
+  binding?: WSDLBinding[];
+  types?: WSDLTypes[];
+  message?: WSDLMessage[];
+  portType?: WSDLPortType[];
 }
 
 export interface WSDLPortTypeAttributes {
@@ -19,7 +19,7 @@ export interface WSDLPortTypeAttributes {
 
 export interface WSDLPortType {
   attributes: WSDLPortTypeAttributes;
-  'wsdl:operation': WSDLOperation[];
+  operation: WSDLOperation[];
 }
 
 export interface WSDLMessageAttributes {
@@ -28,6 +28,7 @@ export interface WSDLMessageAttributes {
 
 export interface WSDLPartAttributes {
   element: string;
+  type: string;
   name: string;
 }
 
@@ -37,17 +38,56 @@ export interface WSDLPart {
 
 export interface WSDLMessage {
   attributes: WSDLMessageAttributes;
-  'wsdl:part': WSDLPart[];
+  part: WSDLPart[];
 }
 
 export interface XSSchemaAttributes {
+  id: string;
   targetNamespace: string;
   version: string;
 }
 
 export interface XSSchema {
   attributes: XSSchemaAttributes;
-  'xs:complexType': XSComplexType[];
+  element?: XSElement[];
+  complexType?: XSComplexType[];
+  simpleType?: XSSimpleType[];
+  import?: XSImport[];
+}
+
+export interface XSImport {
+  attributes: XSImportAttributes;
+}
+
+export interface XSImportAttributes {
+  namespace: string;
+  schemaLocation: string;
+}
+
+export interface XSSimpleTypeAttributes {
+  name: string;
+}
+
+export interface XSSimpleType {
+  attributes: XSSimpleTypeAttributes;
+  restriction: XSRestriction[];
+}
+
+export interface XSRestrictionAttributes {
+  base: string;
+}
+
+export interface XSRestriction {
+  attributes: XSRestrictionAttributes;
+  enumeration: XSEnumeration[];
+}
+
+export interface XSEnumerationAttributes {
+  value: string;
+}
+
+export interface XSEnumeration {
+  attributes: XSEnumerationAttributes;
 }
 
 export interface XSComplexTypeAttributes {
@@ -57,14 +97,41 @@ export interface XSComplexTypeAttributes {
 export interface XSElementAttributes {
   name: string;
   type: string;
+  maxOccurs?: string;
 }
 
 export interface XSElement {
   attributes: XSElementAttributes;
+  complexType?: XSComplexType[];
+  simpleType?: XSSimpleType[];
+}
+
+export interface XSSequenceAttributes {
+  maxOccurs?: string;
 }
 
 export interface XSSequence {
-  'xs:element': XSElement[];
+  attributes?: XSSequenceAttributes;
+  element?: XSElement[];
+  any?: XSAny[];
+}
+
+export interface XSChoiceAttributes {
+  maxOccurs?: string;
+}
+
+export interface XSChoice {
+  attributes?: XSChoiceAttributes;
+  element?: XSElement[];
+  any?: XSAny[];
+}
+
+export interface XSAny {
+  attributes?: XSAnyAttributes;
+}
+
+export interface XSAnyAttributes {
+  namespace?: string;
 }
 
 export interface XSExtensionAttributes {
@@ -73,21 +140,22 @@ export interface XSExtensionAttributes {
 
 export interface XSExtension {
   attributes: XSExtensionAttributes;
-  'xs:sequence': XSSequence[];
+  sequence: XSSequence[];
 }
 
 export interface XSComplexContent {
-  'xs:extension': XSExtension[];
+  extension: XSExtension[];
 }
 
 export interface XSComplexType {
-  attributes: XSComplexTypeAttributes;
-  'xs:complexContent': XSComplexContent[];
-  'xs:sequence': XSSequence[];
+  attributes?: XSComplexTypeAttributes;
+  complexContent?: XSComplexContent[];
+  sequence?: XSSequence[];
+  choice?: XSChoice[];
 }
 
 export interface WSDLTypes {
-  'xs:schema': XSSchema[];
+  schema: XSSchema[];
 }
 
 export interface WSDLBindingAttributes {
@@ -96,7 +164,7 @@ export interface WSDLBindingAttributes {
 }
 
 export interface SOAPBindingAttributes {
-  style: 'document';
+  style: string;
   transport: string;
 }
 
@@ -106,8 +174,8 @@ export interface SOAPBinding {
 
 export interface WSDLBinding {
   attributes: WSDLBindingAttributes;
-  'soap12:binding': SOAPBinding;
-  'wsdl:operation': WSDLOperation[];
+  binding: SOAPBinding;
+  operation: WSDLOperation[];
 }
 
 export interface WSDLOperationAttributes {
@@ -138,7 +206,7 @@ export interface SOAPBody {
 
 export interface WSDLInput {
   attributes: WSDLInputAttributes;
-  'soap12:body': SOAPBody[];
+  body: SOAPBody[];
 }
 
 export interface WSDLOutputAttributes {
@@ -148,7 +216,7 @@ export interface WSDLOutputAttributes {
 
 export interface WSDLOutput {
   attributes: WSDLOutputAttributes;
-  'soap12:body': SOAPBody[];
+  body: SOAPBody[];
 }
 
 export interface WSDLFaultAttributes {
@@ -166,15 +234,15 @@ export interface SOAPFaultAttributes {
 
 export interface WSDLFault {
   attributes: WSDLFaultAttributes;
-  'soap12:fault': SOAPFault[];
+  fault: SOAPFault[];
 }
 
 export interface WSDLOperation {
   attributes: WSDLOperationAttributes;
-  'soap12:operation'?: SOAPOperation[];
-  'wsdl:input': WSDLInput[];
-  'wsdl::output': WSDLOutput[];
-  'wsdl:fault': WSDLFault[];
+  operation?: SOAPOperation[];
+  input: WSDLInput[];
+  output: WSDLOutput[];
+  fault: WSDLFault[];
 }
 
 export interface WSDLServiceAttributes {
@@ -183,7 +251,7 @@ export interface WSDLServiceAttributes {
 
 export interface WSDLService {
   attributes: WSDLServiceAttributes;
-  'wsdl:port': WSDLPort[];
+  port: WSDLPort[];
 }
 
 export interface WSDLPortAttributes {
@@ -193,7 +261,7 @@ export interface WSDLPortAttributes {
 
 export interface WSDLPort {
   attributes: WSDLPortAttributes;
-  'wsdl:address': WSDLAddress[];
+  address: WSDLAddress[];
 }
 
 export interface WSDLAddressAttributes {
@@ -214,5 +282,5 @@ export interface WSDLImport {
 }
 
 export interface WSDLObject {
-  'wsdl:definitions': WSDLDefinition[];
+  definitions: WSDLDefinition[];
 }

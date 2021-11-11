@@ -1,0 +1,48 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`sth s 1`] = `
+"type Query {
+  description: String
+}
+
+type Mutation {
+  tns_TempConvert_TempConvertSoap_FahrenheitToCelsius(FahrenheitToCelsius: tns_FahrenheitToCelsius_Input): tns_FahrenheitToCelsiusSoapOut
+  tns_TempConvert_TempConvertSoap_CelsiusToFahrenheit(CelsiusToFahrenheit: tns_CelsiusToFahrenheit_Input): tns_CelsiusToFahrenheitSoapOut
+  tns_TempConvert_TempConvertSoap12_FahrenheitToCelsius(FahrenheitToCelsius: tns_FahrenheitToCelsius_Input): tns_FahrenheitToCelsiusSoapOut
+  tns_TempConvert_TempConvertSoap12_CelsiusToFahrenheit(CelsiusToFahrenheit: tns_CelsiusToFahrenheit_Input): tns_CelsiusToFahrenheitSoapOut
+  tns_TempConvert_TempConvertHttpPost_FahrenheitToCelsius(Fahrenheit: String): tns_FahrenheitToCelsiusHttpPostOut
+  tns_TempConvert_TempConvertHttpPost_CelsiusToFahrenheit(Celsius: String): tns_CelsiusToFahrenheitHttpPostOut
+}
+
+type tns_FahrenheitToCelsiusSoapOut {
+  FahrenheitToCelsiusResponse: tns_FahrenheitToCelsiusResponse
+}
+
+type tns_FahrenheitToCelsiusResponse {
+  FahrenheitToCelsiusResult: String
+}
+
+input tns_FahrenheitToCelsius_Input {
+  Fahrenheit: String
+}
+
+type tns_CelsiusToFahrenheitSoapOut {
+  CelsiusToFahrenheitResponse: tns_CelsiusToFahrenheitResponse
+}
+
+type tns_CelsiusToFahrenheitResponse {
+  CelsiusToFahrenheitResult: String
+}
+
+input tns_CelsiusToFahrenheit_Input {
+  Celsius: String
+}
+
+type tns_FahrenheitToCelsiusHttpPostOut {
+  string: String
+}
+
+type tns_CelsiusToFahrenheitHttpPostOut {
+  string: String
+}"
+`;
