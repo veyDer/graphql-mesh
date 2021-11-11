@@ -1,4 +1,4 @@
-import { SOAPLoader } from '../src';
+import { SOAPLoader } from '../src/SOAPLoader';
 import { fetch } from 'cross-undici-fetch';
 import { execute, parse, printSchema } from 'graphql';
 
@@ -7,7 +7,7 @@ describe('SOAP Loader', () => {
     const soapLoader = new SOAPLoader({
       fetch: fetch as any,
     });
-    await soapLoader.loadWSDL('https://www.w3schools.com/xml/tempconvert.asmx?WSDL');
+    await soapLoader.fetchWSDL('https://www.w3schools.com/xml/tempconvert.asmx?WSDL');
     const schema = soapLoader.buildSchema();
     expect(printSchema(schema)).toMatchSnapshot();
   });
@@ -15,7 +15,7 @@ describe('SOAP Loader', () => {
     const soapLoader = new SOAPLoader({
       fetch: fetch as any,
     });
-    await soapLoader.loadWSDL('https://www.crcind.com/csp/samples/SOAP.Demo.cls?WSDL');
+    await soapLoader.fetchWSDL('https://www.crcind.com/csp/samples/SOAP.Demo.cls?WSDL');
     const schema = soapLoader.buildSchema();
     expect(
       await execute({

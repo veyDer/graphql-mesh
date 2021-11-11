@@ -287,3 +287,7 @@ export interface WSDLImport {
 export interface WSDLObject {
   definitions: WSDLDefinition[];
 }
+
+export interface XSDObject {
+  schema: XSSchema[];
+}
