@@ -2,8 +2,8 @@ import { SOAPLoader } from '../src';
 import { fetch } from 'cross-undici-fetch';
 import { execute, parse, printSchema } from 'graphql';
 
-describe('sth', () => {
-  it('s', async () => {
+describe('SOAP Loader', () => {
+  it('should generate an executable schema', async () => {
     const soapLoader = new SOAPLoader({
       fetch: fetch as any,
     });

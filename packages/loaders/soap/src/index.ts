@@ -30,6 +30,7 @@ import {
   GraphQLHexadecimal,
   GraphQLBigInt,
   GraphQLTime,
+  GraphQLVoid,
 } from 'graphql-scalars';
 import { GraphQLBoolean, GraphQLFloat, GraphQLScalarType, GraphQLString } from 'graphql';
 
@@ -298,6 +299,156 @@ export class SOAPLoader {
           this.aliasMap.set(messageObj, definitionAliasMap);
         }
       }
+      const serviceAndPortAliasMap = this.getAliasMapFromAttributes(definition.attributes);
+      if (definition.service) {
+        for (const serviceObj of definition.service) {
+          const serviceName = serviceObj.attributes.name;
+          for (const portObj of serviceObj.port) {
+            const portName = portObj.attributes.name;
+            const [bindingNamespaceAlias, bindingName] = portObj.attributes.binding.split(':');
+            const bindingNamespace = serviceAndPortAliasMap.get(bindingNamespaceAlias);
+            if (!bindingNamespace) {
+              throw new Error(`Namespace alias: ${bindingNamespaceAlias} is undefined!`);
+            }
+            const bindingObj = this.getNamespaceBindingMap(bindingNamespace).get(bindingName);
+            if (!bindingObj) {
+              throw new Error(
+                `Binding: ${bindingName} is not defined in ${bindingNamespace} needed for ${serviceName}->${portName}`
+              );
+            }
+            const bindingAliasMap = this.aliasMap.get(bindingObj);
+            if (!bindingAliasMap) {
+              throw new Error(`Namespace alias definitions couldn't be found for ${bindingName}`);
+            }
+            const [portTypeNamespaceAlias, portTypeName] = bindingObj.attributes.type.split(':');
+            const portTypeNamespace = bindingAliasMap.get(portTypeNamespaceAlias);
+            if (!portTypeNamespace) {
+              throw new Error(`Namespace alias: ${portTypeNamespace} is undefined!`);
+            }
+            const portTypeObj = this.getNamespacePortTypeMap(portTypeNamespace).get(portTypeName);
+            if (!portTypeObj) {
+              throw new Error(
+                `Port Type: ${portTypeName} is not defined in ${portTypeNamespace} needed for ${bindingNamespaceAlias}->${bindingName}`
+              );
+            }
+            const portTypeAliasMap = this.aliasMap.get(portTypeObj);
+            for (const operationObj of portTypeObj.operation) {
+              const operationName = operationObj.attributes.name;
+              const rootTC = operationName.toLowerCase().startsWith('get')
+                ? this.schemaComposer.Query
+                : this.schemaComposer.Mutation;
+              const operationFieldName = sanitizeNameForGraphQL(
+                `${typePrefix}_${serviceName}_${portName}_${operationName}`
+              );
+              rootTC.addFields({
+                [operationFieldName]: {
+                  type: () => {
+                    const outputObj = operationObj.output[0];
+                    const [messageNamespaceAlias, messageName] = outputObj.attributes.message.split(':');
+                    const messageNamespace = portTypeAliasMap.get(messageNamespaceAlias);
+                    if (!messageNamespace) {
+                      throw new Error(`Namespace alias: ${messageNamespace} is undefined!`);
+                    }
+                    return this.getOutputTypeForMessage(
+                      this.getNamespaceMessageMap(messageNamespace).get(messageName),
+                      messageNamespace
+                    );
+                  },
+                },
+              });
+              const inputObj = operationObj.input[0];
+              const [inputMessageNamespaceAlias, inputMessageName] = inputObj.attributes.message.split(':');
+              const inputMessageNamespace = portTypeAliasMap.get(inputMessageNamespaceAlias);
+              if (!inputMessageNamespace) {
+                throw new Error(`Namespace alias: ${inputMessageNamespace} is undefined!`);
+              }
+              const inputMessageObj = this.getNamespaceMessageMap(inputMessageNamespace).get(inputMessageName);
+              if (!inputMessageObj) {
+                throw new Error(
+                  `Message: ${inputMessageName} is not defined in ${inputMessageNamespace} needed for ${portTypeName}->${operationName}`
+                );
+              }
+              const aliasMap = this.aliasMap.get(inputMessageObj);
+              for (const part of inputMessageObj.part) {
+                if (part.attributes.element) {
+                  const [elementNamespaceAlias, elementName] = part.attributes.element.split(':');
+                  rootTC.addFieldArgs(operationFieldName, {
+                    [elementName]: {
+                      type: () => {
+                        const elementNamespace = aliasMap.get(elementNamespaceAlias);
+                        if (!elementNamespace) {
+                          throw new Error(`Namespace alias: ${elementNamespace} is not defined.`);
+                        }
+                        return this.getInputTypeForTypeNameInNamespace({
+                          typeName: elementName,
+                          typeNamespace: elementNamespace,
+                        });
+                      },
+                    },
+                  });
+                } else if (part.attributes.name) {
+                  const partName = part.attributes.name;
+                  rootTC.addFieldArgs(operationFieldName, {
+                    [partName]: {
+                      type: () => {
+                        const typeRef = part.attributes.type;
+                        const [typeNamespaceAlias, typeName] = typeRef.split(':');
+                        const typeNamespace = aliasMap.get(typeNamespaceAlias);
+                        if (!typeNamespace) {
+                          throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
+                        }
+                        const inputTC = this.getInputTypeForTypeNameInNamespace({ typeName, typeNamespace });
+                        if ('getFields' in inputTC && Object.keys(inputTC.getFields()).length === 0) {
+                          return GraphQLJSON;
+                        }
+                        return inputTC;
+                      },
+                    },
+                  });
+                }
+              }
+            }
+            for (const operationObj of bindingObj.operation) {
+              const operationName = operationObj.attributes.name;
+              const rootTC = operationName.toLowerCase().startsWith('get')
+                ? this.schemaComposer.Query
+                : this.schemaComposer.Mutation;
+              const operationFieldName = sanitizeNameForGraphQL(
+                `${typePrefix}_${serviceName}_${portName}_${operationName}`
+              );
+              rootTC.getField(operationFieldName).resolve = async (root, args, context, info) => {
+                const requestJson = {
+                  'soap:Envelope': {
+                    attributes: {
+                      'xmlns:soap': 'http://www.w3.org/2003/05/soap-envelope',
+                    },
+                    'soap:Body': {
+                      attributes: {
+                        xmlns: bindingNamespace,
+                      },
+                      ...normalizeArgsForConverter(args),
+                    },
+                  },
+                };
+                const requestXML = jsonToXMLConverter.parse(requestJson);
+                const response = await this.options.fetch(
+                  portObj.address[0].attributes.location.replace('http:', 'https:'),
+                  {
+                    method: 'POST',
+                    body: requestXML,
+                    headers: {
+                      'Content-Type': 'application/soap+xml; charset=utf-8',
+                    },
+                  }
+                );
+                const responseXML = await response.text();
+                const responseJSON = parseXML(responseXML, PARSE_XML_OPTIONS);
+                return normalizeResult(responseJSON.Envelope[0].Body[0]);
+              };
+            }
+          }
+        }
+      }
     }
   }
 
@@ -379,6 +530,11 @@ export class SOAPLoader {
           for (const sequenceOrChoiceObj of choiceOrSequenceObjects) {
             if (sequenceOrChoiceObj.element) {
               for (const elementObj of sequenceOrChoiceObj.element) {
+                const fieldName = elementObj.attributes.name;
+                if (!fieldName) {
+                  console.warn(`Element doesn't have a name in ${complexTypeName}. Ignoring...`);
+                  continue;
+                }
                 fieldMap[elementObj.attributes.name] = {
                   type: () => {
                     const maxOccurs = sequenceOrChoiceObj.attributes?.maxOccurs || elementObj.attributes?.maxOccurs;
@@ -425,6 +581,7 @@ export class SOAPLoader {
                         return inputTC;
                       }
                     }
+                    throw new Error(`Invalid element type definition: ${complexTypeName}->${fieldName}`);
                   },
                 };
               }
@@ -502,6 +659,7 @@ export class SOAPLoader {
           for (const elementObj of choiceOrSequenceObj.element) {
             const fieldName = elementObj.attributes.name;
             if (!fieldName) {
+              console.warn(`Element doesn't have a name in ${complexTypeName}. Ignoring...`);
               continue;
             }
             fieldMap[fieldName] = {
@@ -550,6 +708,7 @@ export class SOAPLoader {
                     return outputTC;
                   }
                 }
+                throw new Error(`Invalid element type definition: ${complexTypeName}->${fieldName}`);
               },
             };
           }
@@ -680,170 +839,16 @@ export class SOAPLoader {
     return outputTC;
   }
 
-  addRootFieldsToComposer() {
-    this.schemaComposer.Query.addFields({
-      description: {
-        type: 'String',
-      },
-    });
-    for (const [namespace, definitions] of this.namespaceDefinitionsMap) {
-      const prefix = this.namespaceTypePrefixMap.get(namespace);
-      for (const definition of definitions) {
-        const serviceAndPortAliasMap = this.getAliasMapFromAttributes(definition.attributes);
-        if (definition.service) {
-          for (const serviceObj of definition.service) {
-            const serviceName = serviceObj.attributes.name;
-            for (const portObj of serviceObj.port) {
-              const portName = portObj.attributes.name;
-              const [bindingNamespaceAlias, bindingName] = portObj.attributes.binding.split(':');
-              const bindingNamespace = serviceAndPortAliasMap.get(bindingNamespaceAlias);
-              if (!bindingNamespace) {
-                throw new Error(`Namespace alias: ${bindingNamespaceAlias} is undefined!`);
-              }
-              const bindingObj = this.getNamespaceBindingMap(bindingNamespace).get(bindingName);
-              if (!bindingObj) {
-                throw new Error(
-                  `Binding: ${bindingName} is not defined in ${bindingNamespace} needed for ${serviceName}->${portName}`
-                );
-              }
-              const bindingAliasMap = this.aliasMap.get(bindingObj);
-              if (!bindingAliasMap) {
-                throw new Error(`Namespace alias definitions couldn't be found for ${bindingName}`);
-              }
-              const [portTypeNamespaceAlias, portTypeName] = bindingObj.attributes.type.split(':');
-              const portTypeNamespace = bindingAliasMap.get(portTypeNamespaceAlias);
-              if (!portTypeNamespace) {
-                throw new Error(`Namespace alias: ${portTypeNamespace} is undefined!`);
-              }
-              const portTypeObj = this.getNamespacePortTypeMap(portTypeNamespace).get(portTypeName);
-              if (!portTypeObj) {
-                throw new Error(
-                  `Port Type: ${portTypeName} is not defined in ${portTypeNamespace} needed for ${bindingNamespaceAlias}->${bindingName}`
-                );
-              }
-              const portTypeAliasMap = this.aliasMap.get(portTypeObj);
-              for (const operationObj of portTypeObj.operation) {
-                const operationName = operationObj.attributes.name;
-                const rootTC = operationName.toLowerCase().startsWith('get')
-                  ? this.schemaComposer.Query
-                  : this.schemaComposer.Mutation;
-                const operationFieldName = sanitizeNameForGraphQL(
-                  `${prefix}_${serviceName}_${portName}_${operationName}`
-                );
-                rootTC.addFields({
-                  [operationFieldName]: {
-                    type: () => {
-                      const outputObj = operationObj.output[0];
-                      const [messageNamespaceAlias, messageName] = outputObj.attributes.message.split(':');
-                      const messageNamespace = portTypeAliasMap.get(messageNamespaceAlias);
-                      if (!messageNamespace) {
-                        throw new Error(`Namespace alias: ${messageNamespace} is undefined!`);
-                      }
-                      return this.getOutputTypeForMessage(
-                        this.getNamespaceMessageMap(messageNamespace).get(messageName),
-                        messageNamespace
-                      );
-                    },
-                  },
-                });
-                const inputObj = operationObj.input[0];
-                const [inputMessageNamespaceAlias, inputMessageName] = inputObj.attributes.message.split(':');
-                const inputMessageNamespace = portTypeAliasMap.get(inputMessageNamespaceAlias);
-                if (!inputMessageNamespace) {
-                  throw new Error(`Namespace alias: ${inputMessageNamespace} is undefined!`);
-                }
-                const inputMessageObj = this.getNamespaceMessageMap(inputMessageNamespace).get(inputMessageName);
-                if (!inputMessageObj) {
-                  throw new Error(
-                    `Message: ${inputMessageName} is not defined in ${inputMessageNamespace} needed for ${portTypeName}->${operationName}`
-                  );
-                }
-                const aliasMap = this.aliasMap.get(inputMessageObj);
-                for (const part of inputMessageObj.part) {
-                  if (part.attributes.element) {
-                    const [elementNamespaceAlias, elementName] = part.attributes.element.split(':');
-                    rootTC.addFieldArgs(operationFieldName, {
-                      [elementName]: {
-                        type: () => {
-                          const elementNamespace = aliasMap.get(elementNamespaceAlias);
-                          if (!elementNamespace) {
-                            throw new Error(`Namespace alias: ${elementNamespace} is not defined.`);
-                          }
-                          return this.getInputTypeForTypeNameInNamespace({
-                            typeName: elementName,
-                            typeNamespace: elementNamespace,
-                          });
-                        },
-                      },
-                    });
-                  } else if (part.attributes.name) {
-                    const partName = part.attributes.name;
-                    rootTC.addFieldArgs(operationFieldName, {
-                      [partName]: {
-                        type: () => {
-                          const typeRef = part.attributes.type;
-                          const [typeNamespaceAlias, typeName] = typeRef.split(':');
-                          const typeNamespace = aliasMap.get(typeNamespaceAlias);
-                          if (!typeNamespace) {
-                            throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
-                          }
-                          const inputTC = this.getInputTypeForTypeNameInNamespace({ typeName, typeNamespace });
-                          if ('getFields' in inputTC && Object.keys(inputTC.getFields()).length === 0) {
-                            return GraphQLJSON;
-                          }
-                          return inputTC;
-                        },
-                      },
-                    });
-                  }
-                }
-              }
-              for (const operationObj of bindingObj.operation) {
-                const operationName = operationObj.attributes.name;
-                const rootTC = operationName.toLowerCase().startsWith('get')
-                  ? this.schemaComposer.Query
-                  : this.schemaComposer.Mutation;
-                const operationFieldName = sanitizeNameForGraphQL(
-                  `${prefix}_${serviceName}_${portName}_${operationName}`
-                );
-                rootTC.getField(operationFieldName).resolve = async (root, args, context, info) => {
-                  const requestJson = {
-                    'soap:Envelope': {
-                      attributes: {
-                        'xmlns:soap': 'http://www.w3.org/2003/05/soap-envelope',
-                      },
-                      'soap:Body': {
-                        attributes: {
-                          xmlns: bindingNamespace,
-                        },
-                        ...normalizeArgsForConverter(args),
-                      },
-                    },
-                  };
-                  const requestXML = jsonToXMLConverter.parse(requestJson);
-                  const response = await this.options.fetch(
-                    portObj.address[0].attributes.location.replace('http:', 'https:'),
-                    {
-                      method: 'POST',
-                      body: requestXML,
-                      headers: {
-                        'Content-Type': 'application/soap+xml; charset=utf-8',
-                      },
-                    }
-                  );
-                  const responseXML = await response.text();
-                  const responseJSON = parseXML(responseXML, PARSE_XML_OPTIONS);
-                  return normalizeResult(responseJSON.Envelope[0].Body[0]);
-                };
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  addRootFieldsToComposer() {}
 
   buildSchema() {
+    if (this.schemaComposer.Query.getFieldNames().length === 0) {
+      this.schemaComposer.Query.addFields({
+        placeholder: {
+          type: GraphQLVoid,
+        },
+      });
+    }
     return this.schemaComposer.buildSchema();
   }
 }
