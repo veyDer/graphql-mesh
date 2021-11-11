@@ -98,6 +98,7 @@ export interface XSElementAttributes {
   name: string;
   type: string;
   maxOccurs?: string;
+  ref?: string;
 }
 
 export interface XSElement {
@@ -140,7 +141,9 @@ export interface XSExtensionAttributes {
 
 export interface XSExtension {
   attributes: XSExtensionAttributes;
-  sequence: XSSequence[];
+  complexContent?: XSComplexContent[];
+  sequence?: XSSequence[];
+  choice?: XSChoice[];
 }
 
 export interface XSComplexContent {

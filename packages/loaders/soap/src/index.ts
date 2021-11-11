@@ -1,6 +1,7 @@
 import { sanitizeNameForGraphQL } from '@graphql-mesh/utils';
 import { J2xOptions, parse as parseXML, X2jOptions, j2xParser as JSONToXMLConverter } from 'fast-xml-parser';
 import {
+  AnyTypeComposer,
   EnumTypeComposer,
   EnumTypeComposerValueConfigDefinition,
   GraphQLJSON,
@@ -20,6 +21,7 @@ import {
   WSDLMessage,
   XSSchema,
   XSSimpleType,
+  XSElement,
 } from './types';
 import {
   GraphQLURL,
@@ -72,7 +74,9 @@ export class SOAPLoader {
   private namespaceTypePrefixMap = new Map<string, string>();
   private loadedLocations = new Set<string>();
 
-  constructor(private options: SOAPLoaderOptions) {}
+  constructor(private options: SOAPLoaderOptions) {
+    this.loadXMLSchemaNamespace();
+  }
 
   loadXMLSchemaNamespace() {
     const namespace = 'http://www.w3.org/2001/XMLSchema';
@@ -521,129 +525,187 @@ export class SOAPLoader {
     if (!complexTypeTC) {
       const complexTypeName = complexType.attributes.name;
       const prefix = this.namespaceTypePrefixMap.get(complexTypeNamespace);
-      complexTypeTC = this.schemaComposer.createInputTC({
-        name: `${prefix}_${complexTypeName}_Input`,
-        fields: () => {
-          const aliasMap = this.aliasMap.get(complexType);
-          const fieldMap: InputTypeComposerFieldConfigMapDefinition = {};
-          const choiceOrSequenceObjects = [...(complexType.sequence || []), ...(complexType.choice || [])];
-          for (const sequenceOrChoiceObj of choiceOrSequenceObjects) {
-            if (sequenceOrChoiceObj.element) {
-              for (const elementObj of sequenceOrChoiceObj.element) {
-                const fieldName = elementObj.attributes.name;
-                if (!fieldName) {
-                  console.warn(`Element doesn't have a name in ${complexTypeName}. Ignoring...`);
-                  continue;
-                }
-                fieldMap[elementObj.attributes.name] = {
-                  type: () => {
-                    const maxOccurs = sequenceOrChoiceObj.attributes?.maxOccurs || elementObj.attributes?.maxOccurs;
-                    const isPlural = maxOccurs != null && maxOccurs !== '1';
-                    if (elementObj.attributes?.type) {
-                      const [typeNamespaceAlias, typeName] = elementObj.attributes.type.split(':');
-                      const typeNamespace = aliasMap.get(typeNamespaceAlias);
-                      if (!typeNamespace) {
-                        throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
-                      }
-                      const inputTC = this.getInputTypeForTypeNameInNamespace({ typeName, typeNamespace });
+      const aliasMap = this.aliasMap.get(complexType);
+      const fieldMap: InputTypeComposerFieldConfigMapDefinition = {};
+      const choiceOrSequenceObjects = [...(complexType.sequence || []), ...(complexType.choice || [])];
+      for (const sequenceOrChoiceObj of choiceOrSequenceObjects) {
+        if (sequenceOrChoiceObj.element) {
+          for (const elementObj of sequenceOrChoiceObj.element) {
+            const fieldName = elementObj.attributes.name;
+            if (fieldName) {
+              fieldMap[fieldName] = {
+                type: () => {
+                  const maxOccurs = sequenceOrChoiceObj.attributes?.maxOccurs || elementObj.attributes?.maxOccurs;
+                  const isPlural = maxOccurs != null && maxOccurs !== '1';
+                  if (elementObj.attributes?.type) {
+                    const [typeNamespaceAlias, typeName] = elementObj.attributes.type.split(':');
+                    const typeNamespace = aliasMap.get(typeNamespaceAlias);
+                    if (!typeNamespace) {
+                      throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
+                    }
+                    const inputTC = this.getInputTypeForTypeNameInNamespace({ typeName, typeNamespace });
+                    if (isPlural) {
+                      return inputTC.getTypePlural();
+                    }
+                    return inputTC;
+                  } else if (elementObj.simpleType) {
+                    // eslint-disable-next-line no-unreachable-loop
+                    for (const simpleTypeObj of elementObj.simpleType) {
+                      // Dynamically defined simple type
+                      // So we need to define alias map for this type
+                      this.aliasMap.set(simpleTypeObj, aliasMap);
+                      // Inherit the name from elementObj
+                      simpleTypeObj.attributes = simpleTypeObj.attributes || ({} as any);
+                      simpleTypeObj.attributes.name = simpleTypeObj.attributes.name || elementObj.attributes.name;
+                      const inputTC = this.getTypeForSimpleType(simpleTypeObj, complexTypeNamespace);
                       if (isPlural) {
                         return inputTC.getTypePlural();
                       }
                       return inputTC;
-                    } else if (elementObj.simpleType) {
-                      // eslint-disable-next-line no-unreachable-loop
-                      for (const simpleTypeObj of elementObj.simpleType) {
-                        // Dynamically defined simple type
-                        // So we need to define alias map for this type
-                        this.aliasMap.set(simpleTypeObj, aliasMap);
-                        // Inherit the name from elementObj
-                        simpleTypeObj.attributes = simpleTypeObj.attributes || ({} as any);
-                        simpleTypeObj.attributes.name = simpleTypeObj.attributes.name || elementObj.attributes.name;
-                        const inputTC = this.getTypeForSimpleType(simpleTypeObj, complexTypeNamespace);
-                        if (isPlural) {
-                          return inputTC.getTypePlural();
-                        }
-                        return inputTC;
-                      }
-                    } else if (elementObj.complexType) {
-                      // eslint-disable-next-line no-unreachable-loop
-                      for (const complexTypeObj of elementObj.complexType) {
-                        // Dynamically defined type
-                        // So we need to define alias map for this type
-                        this.aliasMap.set(complexTypeObj, aliasMap);
-                        // Inherit the name from elementObj
-                        complexTypeObj.attributes = complexTypeObj.attributes || ({} as any);
-                        complexTypeObj.attributes.name = complexTypeObj.attributes.name || elementObj.attributes.name;
-                        const inputTC = this.getInputTypeForComplexType(complexTypeObj, complexTypeNamespace);
-                        if (isPlural) {
-                          return inputTC.getTypePlural();
-                        }
-                        return inputTC;
-                      }
                     }
-                    throw new Error(`Invalid element type definition: ${complexTypeName}->${fieldName}`);
+                  } else if (elementObj.complexType) {
+                    // eslint-disable-next-line no-unreachable-loop
+                    for (const complexTypeObj of elementObj.complexType) {
+                      // Dynamically defined type
+                      // So we need to define alias map for this type
+                      this.aliasMap.set(complexTypeObj, aliasMap);
+                      // Inherit the name from elementObj
+                      complexTypeObj.attributes = complexTypeObj.attributes || ({} as any);
+                      complexTypeObj.attributes.name = complexTypeObj.attributes.name || elementObj.attributes.name;
+                      const inputTC = this.getInputTypeForComplexType(complexTypeObj, complexTypeNamespace);
+                      if (isPlural) {
+                        return inputTC.getTypePlural();
+                      }
+                      return inputTC;
+                    }
+                  }
+                  throw new Error(`Invalid element type definition: ${complexTypeName}->${fieldName}`);
+                },
+              };
+            } else {
+              if (elementObj.attributes?.ref) {
+                console.warn(`element.ref isn't supported yet.`);
+              } else {
+                console.warn(`Element doesn't have a name in ${complexTypeName}. Ignoring...`);
+              }
+            }
+          }
+        }
+        if (sequenceOrChoiceObj.any) {
+          for (const anyObj of sequenceOrChoiceObj.any) {
+            const anyNamespace = anyObj.attributes?.namespace;
+            if (anyNamespace) {
+              const anyTypeTC = this.getInputTypeForTypeNameInNamespace({
+                typeName: complexTypeName,
+                typeNamespace: anyNamespace,
+              });
+              if ('getFields' in anyTypeTC) {
+                for (const fieldName in anyTypeTC.getFields()) {
+                  fieldMap[fieldName] = anyTypeTC.getField(fieldName) as any;
+                }
+              }
+            }
+          }
+        }
+      }
+      if (complexType.complexContent) {
+        for (const complexContentObj of complexType.complexContent) {
+          for (const extensionObj of complexContentObj.extension) {
+            const [baseTypeNamespaceAlias, baseTypeName] = extensionObj.attributes.base.split(':');
+            const baseTypeNamespace = aliasMap.get(baseTypeNamespaceAlias);
+            if (!baseTypeNamespace) {
+              throw new Error(`Namespace alias: ${baseTypeNamespace} is undefined!`);
+            }
+            const baseType = this.getNamespaceComplexTypeMap(baseTypeNamespace)?.get(baseTypeName);
+            if (!baseType) {
+              throw new Error(
+                `Complex Type: ${baseTypeName} couldn't be found in ${baseTypeNamespace} needed for ${complexTypeName}`
+              );
+            }
+            const baseTypeTC = this.getInputTypeForComplexType(baseType, baseTypeNamespace);
+            for (const fieldName in baseTypeTC.getFields()) {
+              fieldMap[fieldName] = baseTypeTC.getField(fieldName);
+            }
+            for (const sequenceObj of extensionObj.sequence) {
+              for (const elementObj of sequenceObj.element) {
+                fieldMap[elementObj.attributes.name] = {
+                  type: () => {
+                    const [typeNamespaceAlias, typeName] = elementObj.attributes.type.split(':');
+                    const typeNamespace = aliasMap.get(typeNamespaceAlias);
+                    if (!typeNamespace) {
+                      throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
+                    }
+                    return this.getInputTypeForTypeNameInNamespace({ typeName, typeNamespace });
                   },
                 };
               }
             }
-            if (sequenceOrChoiceObj.any) {
-              for (const anyObj of sequenceOrChoiceObj.any) {
-                const anyNamespace = anyObj.attributes?.namespace;
-                if (anyNamespace) {
-                  const anyTypeTC = this.getInputTypeForTypeNameInNamespace({
-                    typeName: complexTypeName,
-                    typeNamespace: anyNamespace,
-                  });
-                  if ('getFields' in anyTypeTC) {
-                    for (const fieldName in anyTypeTC.getFields()) {
-                      fieldMap[fieldName] = anyTypeTC.getField(fieldName) as any;
-                    }
-                  }
-                }
-              }
-            }
           }
-          if (complexType.complexContent) {
-            for (const complexContentObj of complexType.complexContent) {
-              for (const extensionObj of complexContentObj.extension) {
-                const [baseTypeNamespaceAlias, baseTypeName] = extensionObj.attributes.base.split(':');
-                const baseTypeNamespace = aliasMap.get(baseTypeNamespaceAlias);
-                if (!baseTypeNamespace) {
-                  throw new Error(`Namespace alias: ${baseTypeNamespace} is undefined!`);
-                }
-                const baseType = this.getNamespaceComplexTypeMap(baseTypeNamespace)?.get(baseTypeName);
-                if (!baseType) {
-                  throw new Error(
-                    `Complex Type: ${baseTypeName} couldn't be found in ${baseTypeNamespace} needed for ${complexTypeName}`
-                  );
-                }
-                const baseTypeTC = this.getInputTypeForComplexType(baseType, baseTypeNamespace);
-                for (const fieldName in baseTypeTC.getFields()) {
-                  fieldMap[fieldName] = baseTypeTC.getField(fieldName);
-                }
-                for (const sequenceObj of extensionObj.sequence) {
-                  for (const elementObj of sequenceObj.element) {
-                    fieldMap[elementObj.attributes.name] = {
-                      type: () => {
-                        const [typeNamespaceAlias, typeName] = elementObj.attributes.type.split(':');
-                        const typeNamespace = aliasMap.get(typeNamespaceAlias);
-                        if (!typeNamespace) {
-                          throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
-                        }
-                        return this.getInputTypeForTypeNameInNamespace({ typeName, typeNamespace });
-                      },
-                    };
-                  }
-                }
-              }
-            }
-          }
-          return fieldMap;
-        },
-      });
+        }
+      }
+      if (Object.keys(fieldMap).length === 0) {
+        complexTypeTC = GraphQLJSON as any;
+      } else {
+        complexTypeTC = this.schemaComposer.createInputTC({
+          name: `${prefix}_${complexTypeName}_Input`,
+          fields: fieldMap,
+        });
+      }
       this.complexTypeInputTCMap.set(complexType, complexTypeTC);
     }
     return complexTypeTC;
+  }
+
+  getOutputFieldTypeFromElement(
+    elementObj: XSElement,
+    maxOccurs: string,
+    aliasMap: Map<string, string>,
+    namespace: string
+  ) {
+    const isPlural = maxOccurs != null && maxOccurs !== '1';
+    if (elementObj.attributes?.type) {
+      const [typeNamespaceAlias, typeName] = elementObj.attributes.type.split(':');
+      const typeNamespace = aliasMap.get(typeNamespaceAlias);
+      if (!typeNamespace) {
+        throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
+      }
+      const outputTC = this.getOutputTypeForTypeNameInNamespace({ typeName, typeNamespace });
+      if (isPlural) {
+        return outputTC.getTypePlural();
+      }
+      return outputTC;
+    } else if (elementObj.simpleType) {
+      // eslint-disable-next-line no-unreachable-loop
+      for (const simpleTypeObj of elementObj.simpleType) {
+        // Dynamically defined simple type
+        // So we need to define alias map for this type
+        this.aliasMap.set(simpleTypeObj, aliasMap);
+        // Inherit the name from elementObj
+        simpleTypeObj.attributes = simpleTypeObj.attributes || ({} as any);
+        simpleTypeObj.attributes.name = simpleTypeObj.attributes.name || elementObj.attributes.name;
+        const outputTC = this.getTypeForSimpleType(simpleTypeObj, namespace);
+        if (isPlural) {
+          return outputTC.getTypePlural();
+        }
+        return outputTC;
+      }
+    } else if (elementObj.complexType) {
+      // eslint-disable-next-line no-unreachable-loop
+      for (const complexTypeObj of elementObj.complexType) {
+        // Dynamically defined type
+        // So we need to define alias map for this type
+        this.aliasMap.set(complexTypeObj, aliasMap);
+        // Inherit the name from elementObj
+        complexTypeObj.attributes = complexTypeObj.attributes || ({} as any);
+        complexTypeObj.attributes.name = complexTypeObj.attributes.name || elementObj.attributes.name;
+        const outputTC = this.getOutputTypeForComplexType(complexTypeObj, namespace);
+        if (isPlural) {
+          return outputTC.getTypePlural();
+        }
+        return outputTC;
+      }
+    }
+    throw new Error(`Invalid element type definition: ${elementObj.attributes.name}`);
   }
 
   getOutputTypeForComplexType(complexType: XSComplexType, complexTypeNamespace: string) {
@@ -658,59 +720,33 @@ export class SOAPLoader {
         if (choiceOrSequenceObj.element) {
           for (const elementObj of choiceOrSequenceObj.element) {
             const fieldName = elementObj.attributes.name;
-            if (!fieldName) {
-              console.warn(`Element doesn't have a name in ${complexTypeName}. Ignoring...`);
-              continue;
-            }
-            fieldMap[fieldName] = {
-              type: () => {
-                const maxOccurs = choiceOrSequenceObj.attributes?.maxOccurs || elementObj.attributes?.maxOccurs;
-                const isPlural = maxOccurs != null && maxOccurs !== '1';
-                if (elementObj.attributes?.type) {
-                  const [typeNamespaceAlias, typeName] = elementObj.attributes.type.split(':');
-                  const typeNamespace = aliasMap.get(typeNamespaceAlias);
-                  if (!typeNamespace) {
-                    throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
+            if (fieldName) {
+              fieldMap[fieldName] = {
+                type: () =>
+                  this.getOutputFieldTypeFromElement(
+                    elementObj,
+                    choiceOrSequenceObj.attributes?.maxOccurs || elementObj.attributes?.maxOccurs,
+                    aliasMap,
+                    complexTypeNamespace
+                  ),
+              };
+            } else {
+              if (elementObj.attributes?.ref) {
+                const [, refName] = elementObj.attributes.ref.split(':');
+                if (refName === 'schema') {
+                  const refNamespaceTypeMap = this.getNamespaceComplexTypeMap(complexTypeNamespace);
+                  for (const [typeName, complexType] of refNamespaceTypeMap) {
+                    fieldMap[typeName] = {
+                      type: () => this.getOutputTypeForComplexType(complexType, complexTypeNamespace),
+                    };
                   }
-                  const outputTC = this.getOutputTypeForTypeNameInNamespace({ typeName, typeNamespace });
-                  if (isPlural) {
-                    return outputTC.getTypePlural();
-                  }
-                  return outputTC;
-                } else if (elementObj.simpleType) {
-                  // eslint-disable-next-line no-unreachable-loop
-                  for (const simpleTypeObj of elementObj.simpleType) {
-                    // Dynamically defined simple type
-                    // So we need to define alias map for this type
-                    this.aliasMap.set(simpleTypeObj, aliasMap);
-                    // Inherit the name from elementObj
-                    simpleTypeObj.attributes = simpleTypeObj.attributes || ({} as any);
-                    simpleTypeObj.attributes.name = simpleTypeObj.attributes.name || elementObj.attributes.name;
-                    const outputTC = this.getTypeForSimpleType(simpleTypeObj, complexTypeNamespace);
-                    if (isPlural) {
-                      return outputTC.getTypePlural();
-                    }
-                    return outputTC;
-                  }
-                } else if (elementObj.complexType) {
-                  // eslint-disable-next-line no-unreachable-loop
-                  for (const complexTypeObj of elementObj.complexType) {
-                    // Dynamically defined type
-                    // So we need to define alias map for this type
-                    this.aliasMap.set(complexTypeObj, aliasMap);
-                    // Inherit the name from elementObj
-                    complexTypeObj.attributes = complexTypeObj.attributes || ({} as any);
-                    complexTypeObj.attributes.name = complexTypeObj.attributes.name || elementObj.attributes.name;
-                    const outputTC = this.getOutputTypeForComplexType(complexTypeObj, complexTypeNamespace);
-                    if (isPlural) {
-                      return outputTC.getTypePlural();
-                    }
-                    return outputTC;
-                  }
+                } else {
+                  console.warn('Other references not supported ' + elementObj.attributes.ref);
                 }
-                throw new Error(`Invalid element type definition: ${complexTypeName}->${fieldName}`);
-              },
-            };
+              } else {
+                console.warn(`Element doesn't have a name in ${complexTypeName}. Ignoring...`);
+              }
+            }
           }
         }
         if (choiceOrSequenceObj.any) {
@@ -750,18 +786,18 @@ export class SOAPLoader {
                 fieldMap[fieldName] = baseTypeTC.getField(fieldName);
               }
             }
-            for (const sequenceObj of extensionObj.sequence) {
-              for (const elementObj of sequenceObj.element) {
+            const choiceOrSequenceObjects = [...(extensionObj.sequence || []), ...(extensionObj.choice || [])];
+            for (const choiceOrSequenceObj of choiceOrSequenceObjects) {
+              for (const elementObj of choiceOrSequenceObj.element) {
                 const fieldName = elementObj.attributes.name;
                 fieldMap[fieldName] = {
-                  type: () => {
-                    const [typeNamespaceAlias, typeName] = elementObj.attributes.type.split(':');
-                    const typeNamespace = aliasMap.get(typeNamespaceAlias);
-                    if (!typeNamespace) {
-                      throw new Error(`Namespace alias: ${typeNamespace} is undefined!`);
-                    }
-                    return this.getOutputTypeForTypeNameInNamespace({ typeName, typeNamespace });
-                  },
+                  type: () =>
+                    this.getOutputFieldTypeFromElement(
+                      elementObj,
+                      choiceOrSequenceObj.attributes?.maxOccurs || elementObj.attributes?.maxOccurs,
+                      aliasMap,
+                      complexTypeNamespace
+                    ),
                 };
               }
             }
@@ -838,8 +874,6 @@ export class SOAPLoader {
     }
     return outputTC;
   }
-
-  addRootFieldsToComposer() {}
 
   buildSchema() {
     if (this.schemaComposer.Query.getFieldNames().length === 0) {

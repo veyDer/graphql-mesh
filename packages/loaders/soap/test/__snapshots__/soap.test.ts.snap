@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`SOAP Loader should generate an executable schema 1`] = `
+exports[`SOAP Loader should generate the schema correctly 1`] = `
 "type Query {
   placeholder: Void
 }
